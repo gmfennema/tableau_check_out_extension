@@ -50,7 +50,7 @@ function setupGlobalEventHandlers() {
                     </div>
                 `;
                 
-                // Clear all storage
+                // Clear all browser storage
                 try {
                     localStorage.clear();
                     sessionStorage.clear();
@@ -59,42 +59,92 @@ function setupGlobalEventHandlers() {
                 }
                 
                 // Clear Tableau extension settings
-                tableau.extensions.settings.clear();
-                
-                // Save settings and reload
-                tableau.extensions.settings.saveAsync()
-                    .then(() => {
-                        console.log('Settings cleared successfully');
-                        
-                        // Try multiple reload approaches for better compatibility
-                        try {
-                            // Method 1: Standard reload
-                            window.location.reload(true); // true forces reload from server, not cache
+                // Note: tableau.extensions.settings.clear() doesn't exist in the API
+                // Instead, we need to erase settings by erasing keys individually
+                try {
+                    // Get existing settings
+                    const savedConfig = tableau.extensions.settings.get('checkoutConfig');
+                    if (savedConfig) {
+                        // Erase the settings by setting it to an empty string
+                        tableau.extensions.settings.set('checkoutConfig', '');
+                    }
+                    
+                    // Save the cleared settings
+                    tableau.extensions.settings.saveAsync()
+                        .then(() => {
+                            console.log('Settings cleared successfully');
                             
-                            // Method 2: Set a timeout as fallback in case the above doesn't trigger
-                            setTimeout(() => {
-                                // Method 3: Change location to self (works better in some iframe contexts)
-                                window.location.href = window.location.href;
-                                
-                                // Method 4: Last resort - notify user to manually reload
-                                setTimeout(() => {
-                                    document.body.innerHTML = `
-                                        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
-                                            <p>Please manually reload the extension by:</p>
-                                            <p>1. Right-clicking on the extension</p>
-                                            <p>2. Selecting "Reload" from the menu</p>
-                                        </div>
-                                    `;
-                                }, 2000);
-                            }, 1000);
-                        } catch (e) {
-                            console.error('Error during reload:', e);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error saving cleared settings:', error);
-                        alert('Failed to reset extension. Please reload manually.');
-                    });
+                            // Use Tableau's own extension reload method if available
+                            try {
+                                // First try Tableau's extension reload method
+                                if (tableau.extensions.ui && typeof tableau.extensions.ui.closeDialog === 'function') {
+                                    // If in a dialog, try to close and reopen
+                                    console.log('Attempting to reload via Tableau Extensions API...');
+                                    
+                                    // Request a reload from Tableau
+                                    tableau.extensions.ui.closeDialog('reload');
+                                } else {
+                                    // Fall back to standard browser reload
+                                    console.log('Falling back to browser reload...');
+                                    window.location.reload(true);
+                                    
+                                    // Fallback mechanism
+                                    setTimeout(() => {
+                                        document.body.innerHTML = `
+                                            <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                                                <p>Please manually reload the extension by:</p>
+                                                <p>1. Right-clicking on the extension</p>
+                                                <p>2. Selecting "Reload" from the menu</p>
+                                                <button onclick="window.location.reload(true)" style="margin-top: 20px; padding: 10px;">
+                                                    Try Reload Again
+                                                </button>
+                                            </div>
+                                        `;
+                                    }, 2000);
+                                }
+                            } catch (e) {
+                                console.error('Error reloading extension:', e);
+                                // Last resort - give user manual instructions
+                                document.body.innerHTML = `
+                                    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                                        <p>Unable to automatically reload. Please manually reload the extension by:</p>
+                                        <p>1. Right-clicking on the extension</p>
+                                        <p>2. Selecting "Reload" from the menu</p>
+                                        <button onclick="window.location.reload(true)" style="margin-top: 20px; padding: 10px;">
+                                            Try Reload Again
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error saving cleared settings:', error);
+                            document.body.innerHTML = `
+                                <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; color: #f44336;">
+                                    <p>Error resetting extension: ${error.message}</p>
+                                    <p>Please manually reload the extension by:</p>
+                                    <p>1. Right-clicking on the extension</p>
+                                    <p>2. Selecting "Reload" from the menu</p>
+                                    <button onclick="window.location.reload(true)" style="margin-top: 20px; padding: 10px;">
+                                        Try Reload Again
+                                    </button>
+                                </div>
+                            `;
+                        });
+                } catch (error) {
+                    console.error('Error during reset process:', error);
+                    document.body.innerHTML = `
+                        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; color: #f44336;">
+                            <p>Error resetting extension: ${error.message}</p>
+                            <p>Please manually reload the extension by:</p>
+                            <p>1. Right-clicking on the extension</p>
+                            <p>2. Selecting "Reload" from the menu</p>
+                            <button onclick="window.location.reload(true)" style="margin-top: 20px; padding: 10px;">
+                                Try Reload Again
+                            </button>
+                        </div>
+                    `;
+                }
             }
         });
         
