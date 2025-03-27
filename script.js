@@ -42,12 +42,59 @@ function setupGlobalEventHandlers() {
         
         resetButton.addEventListener('click', () => {
             if (confirm('This will reset the extension and clear all stored data. Continue?')) {
-                localStorage.clear();
-                sessionStorage.clear();
+                // Show a loading indicator
+                document.body.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                        <p>Resetting extension...</p>
+                        <p>The extension will reload automatically.</p>
+                    </div>
+                `;
+                
+                // Clear all storage
+                try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                } catch (e) {
+                    console.error('Error clearing browser storage:', e);
+                }
+                
+                // Clear Tableau extension settings
                 tableau.extensions.settings.clear();
-                tableau.extensions.settings.saveAsync().then(() => {
-                    window.location.reload();
-                });
+                
+                // Save settings and reload
+                tableau.extensions.settings.saveAsync()
+                    .then(() => {
+                        console.log('Settings cleared successfully');
+                        
+                        // Try multiple reload approaches for better compatibility
+                        try {
+                            // Method 1: Standard reload
+                            window.location.reload(true); // true forces reload from server, not cache
+                            
+                            // Method 2: Set a timeout as fallback in case the above doesn't trigger
+                            setTimeout(() => {
+                                // Method 3: Change location to self (works better in some iframe contexts)
+                                window.location.href = window.location.href;
+                                
+                                // Method 4: Last resort - notify user to manually reload
+                                setTimeout(() => {
+                                    document.body.innerHTML = `
+                                        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                                            <p>Please manually reload the extension by:</p>
+                                            <p>1. Right-clicking on the extension</p>
+                                            <p>2. Selecting "Reload" from the menu</p>
+                                        </div>
+                                    `;
+                                }, 2000);
+                            }, 1000);
+                        } catch (e) {
+                            console.error('Error during reload:', e);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saving cleared settings:', error);
+                        alert('Failed to reset extension. Please reload manually.');
+                    });
             }
         });
         
