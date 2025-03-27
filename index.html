@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Account Checkout Extension</title>
+  <!-- Load the Tableau Extensions API -->
+  <script type="module"
+    src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #configSection {
+      padding: 20px;
+    }
+
+    #configSection.hidden {
+      display: none;
+    }
+
+    select {
+      margin: 10px 0;
+      padding: 5px;
+      width: 200px;
+    }
+
+    #buttonContainer {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    #checkoutButton {
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+
+    #checkoutButton.checkout {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    #checkoutButton.checkin {
+      background-color: #2196F3;
+      color: white;
+    }
+
+    #checkoutButton.unavailable {
+      background-color: #f44336;
+      color: white;
+      cursor: not-allowed;
+    }
+
+    .field-container {
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="configSection">
+    <div class="field-container">
+      <label for="worksheetSelect">Select Worksheet:</label>
+      <select id="worksheetSelect">
+        <option value="" disabled selected>Select Worksheet</option>
+      </select>
+    </div>
+    <div id="columnsSelect" style="display: none;">
+      <div class="field-container">
+        <label for="accountIdColumn">Select Account ID Column:</label>
+        <select id="accountIdColumn">
+          <option value="" disabled selected>Select Column</option>
+        </select>
+      </div>
+      <div class="field-container">
+        <label for="statusColumn">Select Status Column:</label>
+        <select id="statusColumn">
+          <option value="" disabled selected>Select Column</option>
+        </select>
+      </div>
+      <div class="field-container">
+        <label for="userColumn">Select User Column:</label>
+        <select id="userColumn">
+          <option value="" disabled selected>Select Column</option>
+        </select>
+      </div>
+      <div class="field-container">
+        <label for="currentUserField">Your Username:</label>
+        <input type="text" id="currentUserField" placeholder="Enter your username">
+      </div>
+      <div class="field-container">
+        <button id="saveConfig">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+  <div id="buttonContainer" class="hidden">
+    <button id="checkoutButton" class="checkout">Check Out</button>
+  </div>
+  <script src="script.js"></script>
+</body>
+
+</html>
