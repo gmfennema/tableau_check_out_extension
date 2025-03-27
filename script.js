@@ -159,12 +159,29 @@ function showConfig() {
     });
 }
 
-// Get the current Tableau user's display name, username, or email
+// Update the getCurrentUser function to display all available user properties
 function getCurrentUser() {
     const environment = tableau.extensions.environment;
     const userInfo = environment.user;
     
-    console.log('User environment info:', userInfo);
+    // Create a debug message with all available user information
+    let debugInfo = 'User environment info:<br>';
+    
+    // Display all available user properties for debugging
+    if (userInfo) {
+        debugInfo += '<strong>Available properties:</strong><br>';
+        for (const prop in userInfo) {
+            debugInfo += `${prop}: ${userInfo[prop]}<br>`;
+        }
+    } else {
+        debugInfo += 'No user information available from Tableau';
+    }
+    
+    // Update the debug info on the page (we'll add this element to the HTML)
+    const debugElement = document.getElementById('userDebugInfo');
+    if (debugElement) {
+        debugElement.innerHTML = debugInfo;
+    }
     
     // Try to get a suitable user identifier in order of preference
     if (userInfo && userInfo.displayName) {

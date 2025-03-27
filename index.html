@@ -91,6 +91,21 @@
       font-weight: bold;
       margin-bottom: 10px;
     }
+
+    .debug-info {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border-left: 4px solid #6c757d;
+      overflow-wrap: break-word;
+    }
+
+    .debug-content {
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 
@@ -124,6 +139,11 @@
       <div class="user-info">
         <p>Current User: <span id="currentUserDisplay"></span></p>
         <p><small>This information is automatically detected from your Tableau login.</small></p>
+      </div>
+      
+      <div class="debug-info">
+        <div class="config-title">Debug Information</div>
+        <div id="userDebugInfo" class="debug-content"></div>
       </div>
       
       <div class="config-section">
