@@ -68,6 +68,18 @@
     .field-container {
       margin-bottom: 15px;
     }
+    
+    .user-info {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      border-left: 4px solid #2196F3;
+    }
+    
+    .user-info span {
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -98,9 +110,9 @@
           <option value="" disabled selected>Select Column</option>
         </select>
       </div>
-      <div class="field-container">
-        <label for="currentUserField">Your Username:</label>
-        <input type="text" id="currentUserField" placeholder="Enter your username">
+      <div class="user-info">
+        <p>Current User: <span id="currentUserDisplay"></span></p>
+        <p><small>This information is automatically detected from your Tableau login.</small></p>
       </div>
       <div class="field-container">
         <button id="saveConfig">Save Configuration</button>

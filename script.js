@@ -21,6 +21,9 @@ function showConfig() {
     const configSection = document.getElementById('configSection');
     configSection.classList.remove('hidden');
     
+    // Get current user information
+    const currentUser = getCurrentUser();
+    
     // Populate worksheet dropdown
     const worksheetSelect = document.getElementById('worksheetSelect');
     worksheetSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
@@ -70,12 +73,16 @@ function showConfig() {
         
         columnsSelect.style.display = 'block';
         
+        // Show current user in the configuration panel
+        const currentUserDisplay = document.getElementById('currentUserDisplay');
+        if (currentUserDisplay) {
+            currentUserDisplay.textContent = currentUser;
+        }
+        
         // Handle save button click
         document.getElementById('saveConfig').addEventListener('click', () => {
-            const currentUser = document.getElementById('currentUserField').value;
-            
-            if (!accountIdColumn.value || !statusColumn.value || !userColumn.value || !currentUser) {
-                alert('Please select all required fields and enter your username');
+            if (!accountIdColumn.value || !statusColumn.value || !userColumn.value) {
+                alert('Please select all required fields');
                 return;
             }
             
@@ -84,7 +91,7 @@ function showConfig() {
                 accountIdColumn: accountIdColumn.value,
                 statusColumn: statusColumn.value,
                 userColumn: userColumn.value,
-                currentUser: currentUser
+                currentUser: currentUser // Use automatically detected user
             };
             
             // Save configuration
@@ -95,6 +102,29 @@ function showConfig() {
             });
         });
     });
+}
+
+// Get the current Tableau user's display name, username, or email
+function getCurrentUser() {
+    const environment = tableau.extensions.environment;
+    const userInfo = environment.user;
+    
+    console.log('User environment info:', userInfo);
+    
+    // Try to get a suitable user identifier in order of preference
+    if (userInfo && userInfo.displayName) {
+        return userInfo.displayName; // User's display name (First Last)
+    } else if (userInfo && userInfo.friendlyName) {
+        return userInfo.friendlyName; // Friendly name if available
+    } else if (userInfo && userInfo.email) {
+        return userInfo.email; // Email address if available
+    } else if (userInfo && userInfo.username) {
+        return userInfo.username; // Username if available
+    } else {
+        // Fallback to hostname or a timestamp-based value if no user info is available
+        const hostname = window.location.hostname || 'tableauuser';
+        return `${hostname}-${new Date().getTime()}`;
+    }
 }
 
 async function getWorksheetColumns(worksheet) {
