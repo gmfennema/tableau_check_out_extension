@@ -24,6 +24,23 @@ function showConfig() {
     // Get current user information
     const currentUser = getCurrentUser();
     
+    // Load existing configuration if available
+    const savedConfig = tableau.extensions.settings.get('checkoutConfig');
+    let existingConfig = null;
+    
+    if (savedConfig) {
+        existingConfig = JSON.parse(savedConfig);
+        
+        // Populate API config fields if they exist
+        if (existingConfig.appScriptUrl) {
+            document.getElementById('appScriptUrl').value = existingConfig.appScriptUrl;
+        }
+        
+        if (existingConfig.apiKey) {
+            document.getElementById('apiKey').value = existingConfig.apiKey;
+        }
+    }
+    
     // Populate worksheet dropdown
     const worksheetSelect = document.getElementById('worksheetSelect');
     worksheetSelect.innerHTML = '<option value="" disabled selected>Select Worksheet</option>';
@@ -34,6 +51,14 @@ function showConfig() {
         option.value = worksheet.name;
         option.textContent = worksheet.name;
         worksheetSelect.appendChild(option);
+        
+        // Select previously configured worksheet if available
+        if (existingConfig && existingConfig.worksheetName === worksheet.name) {
+            option.selected = true;
+            // Trigger the change event to load columns
+            const changeEvent = new Event('change');
+            worksheetSelect.dispatchEvent(changeEvent);
+        }
     });
 
     // Handle worksheet selection
@@ -58,17 +83,32 @@ function showConfig() {
             accOption.textContent = column;
             accountIdColumn.appendChild(accOption);
             
+            // Select previously configured column if available
+            if (existingConfig && existingConfig.accountIdColumn === column) {
+                accOption.selected = true;
+            }
+            
             // Status Column options
             const statusOption = document.createElement('option');
             statusOption.value = column;
             statusOption.textContent = column;
             statusColumn.appendChild(statusOption);
             
+            // Select previously configured column if available
+            if (existingConfig && existingConfig.statusColumn === column) {
+                statusOption.selected = true;
+            }
+            
             // User Column options
             const userOption = document.createElement('option');
             userOption.value = column;
             userOption.textContent = column;
             userColumn.appendChild(userOption);
+            
+            // Select previously configured column if available
+            if (existingConfig && existingConfig.userColumn === column) {
+                userOption.selected = true;
+            }
         });
         
         columnsSelect.style.display = 'block';
@@ -81,8 +121,21 @@ function showConfig() {
         
         // Handle save button click
         document.getElementById('saveConfig').addEventListener('click', () => {
+            const appScriptUrl = document.getElementById('appScriptUrl').value;
+            const apiKey = document.getElementById('apiKey').value;
+            
             if (!accountIdColumn.value || !statusColumn.value || !userColumn.value) {
-                alert('Please select all required fields');
+                alert('Please select all required column fields');
+                return;
+            }
+            
+            if (!appScriptUrl) {
+                alert('Please enter the Google Apps Script URL');
+                return;
+            }
+            
+            if (!apiKey) {
+                alert('Please enter the API key');
                 return;
             }
             
@@ -91,7 +144,9 @@ function showConfig() {
                 accountIdColumn: accountIdColumn.value,
                 statusColumn: statusColumn.value,
                 userColumn: userColumn.value,
-                currentUser: currentUser // Use automatically detected user
+                currentUser: currentUser,
+                appScriptUrl: appScriptUrl,
+                apiKey: apiKey
             };
             
             // Save configuration
@@ -141,6 +196,15 @@ function setupCheckoutListener(config) {
     const dashboard = tableau.extensions.dashboardContent.dashboard;
     const worksheet = dashboard.worksheets.find(w => w.name === config.worksheetName);
     const checkoutButton = document.getElementById('checkoutButton');
+    
+    // Display error if required config is missing
+    if (!config.appScriptUrl || !config.apiKey) {
+        checkoutButton.textContent = 'Configuration Error';
+        checkoutButton.className = 'unavailable';
+        checkoutButton.disabled = true;
+        alert('API configuration is missing. Please reconfigure the extension.');
+        return;
+    }
     
     let accountId = '';
     let currentStatus = '';
@@ -192,7 +256,8 @@ function setupCheckoutListener(config) {
         const payload = {
             accountId: accountId,
             user: user,
-            action: action
+            action: action,
+            apiKey: config.apiKey // Include the API key in the payload
         };
         
         try {
@@ -201,11 +266,11 @@ function setupCheckoutListener(config) {
             checkoutButton.textContent = 'Processing...';
             checkoutButton.disabled = true;
             
-            console.log('Sending request with payload:', payload);
+            console.log('Sending request with payload:', { ...payload, apiKey: '[REDACTED]' });
             
             // Use XMLHttpRequest instead of fetch for better cross-origin support
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', 'https://script.google.com/macros/s/AKfycbyXB8WBXK3TQ9oJi-x_NtxEssXl52uJK27JaW3hBPXXlFt5UH7QD3gOpr-lbnvxBZ68jQ/exec', true);
+            xhr.open('POST', config.appScriptUrl, true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             
             // Handle the response
@@ -260,11 +325,11 @@ function setupCheckoutListener(config) {
                 // Create a form that properly submits
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = 'https://script.google.com/macros/s/AKfycbyXB8WBXK3TQ9oJi-x_NtxEssXl52uJK27JaW3hBPXXlFt5UH7QD3gOpr-lbnvxBZ68jQ/exec';
+                form.action = config.appScriptUrl;
                 form.target = iframe.name; // Target the iframe instead of _blank
                 form.style.display = 'none';
                 
-                // Add individual form fields instead of a single payload field
+                // Add individual form fields including the API key
                 const accountIdInput = document.createElement('input');
                 accountIdInput.type = 'hidden';
                 accountIdInput.name = 'accountId';
@@ -282,6 +347,12 @@ function setupCheckoutListener(config) {
                 actionInput.name = 'action';
                 actionInput.value = payload.action;
                 form.appendChild(actionInput);
+                
+                const apiKeyInput = document.createElement('input');
+                apiKeyInput.type = 'hidden';
+                apiKeyInput.name = 'apiKey';
+                apiKeyInput.value = payload.apiKey;
+                form.appendChild(apiKeyInput);
                 
                 // Add form to document, submit it, then remove it
                 document.body.appendChild(form);
