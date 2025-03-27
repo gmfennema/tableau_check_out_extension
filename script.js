@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Add global Enter key handler for the name input
+    setupGlobalEventHandlers();
+    
     // Initialize with configure context menu options
     tableau.extensions.initializeAsync({'configure': configure}).then(() => {
         // Check if we already have a stored username
@@ -11,8 +14,46 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show name prompt
             showNamePrompt();
         }
+    }).catch(error => {
+        // Handle initialization errors
+        console.error('Error initializing extension:', error);
+        document.body.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <h2>Extension Error</h2>
+                <p>There was an error initializing the extension. Please reload the page.</p>
+                <p>Error details: ${error.message}</p>
+            </div>
+        `;
     });
 });
+
+function setupGlobalEventHandlers() {
+    // Add reset button to clear stored data (useful for testing)
+    const buttonContainer = document.getElementById('buttonContainer');
+    if (buttonContainer) {
+        const resetButton = document.createElement('button');
+        resetButton.textContent = 'Reset Extension';
+        resetButton.style.position = 'absolute';
+        resetButton.style.bottom = '10px';
+        resetButton.style.right = '10px';
+        resetButton.style.fontSize = '10px';
+        resetButton.style.padding = '2px 5px';
+        resetButton.style.opacity = '0.7';
+        
+        resetButton.addEventListener('click', () => {
+            if (confirm('This will reset the extension and clear all stored data. Continue?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                tableau.extensions.settings.clear();
+                tableau.extensions.settings.saveAsync().then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+        
+        buttonContainer.appendChild(resetButton);
+    }
+}
 
 function configure() {
     // Show configuration when the context menu option is clicked
@@ -21,33 +62,71 @@ function configure() {
 
 // Get username from storage (sessionStorage or localStorage based on remember setting)
 function getStoredUserName() {
-    const savedUserName = localStorage.getItem('tableauExtensionUserName');
-    const sessionUserName = sessionStorage.getItem('tableauExtensionUserName');
-    
-    return sessionUserName || savedUserName;
+    try {
+        const savedUserName = localStorage.getItem('tableauExtensionUserName');
+        const sessionUserName = sessionStorage.getItem('tableauExtensionUserName');
+        
+        console.log('Stored usernames:', { localStorage: savedUserName, sessionStorage: sessionUserName });
+        
+        return sessionUserName || savedUserName;
+    } catch (error) {
+        console.error('Error getting stored username:', error);
+        return null;
+    }
 }
 
 // Set username in storage
 function setStoredUserName(userName, remember) {
-    if (remember) {
-        localStorage.setItem('tableauExtensionUserName', userName);
-    } else {
-        // Clear localStorage in case it was previously set
-        localStorage.removeItem('tableauExtensionUserName');
+    try {
+        console.log('Setting username:', userName, 'remember:', remember);
+        
+        if (remember) {
+            localStorage.setItem('tableauExtensionUserName', userName);
+        } else {
+            // Clear localStorage in case it was previously set
+            localStorage.removeItem('tableauExtensionUserName');
+        }
+        
+        // Always set in session storage
+        sessionStorage.setItem('tableauExtensionUserName', userName);
+    } catch (error) {
+        console.error('Error storing username:', error);
     }
-    
-    // Always set in session storage
-    sessionStorage.setItem('tableauExtensionUserName', userName);
 }
 
 // Show name prompt view
 function showNamePrompt() {
-    document.getElementById('namePromptContainer').style.display = 'flex';
-    document.getElementById('configSection').classList.add('hidden');
-    document.getElementById('buttonContainer').classList.add('hidden');
+    const namePromptContainer = document.getElementById('namePromptContainer');
+    const configSection = document.getElementById('configSection');
+    const buttonContainer = document.getElementById('buttonContainer');
     
-    // Handle name submission
-    document.getElementById('nameSubmitBtn').addEventListener('click', submitUserName);
+    // Make sure other sections are hidden
+    namePromptContainer.style.display = 'flex';
+    configSection.classList.add('hidden');
+    buttonContainer.classList.add('hidden');
+    
+    // Clear any previous input value
+    const nameInput = document.getElementById('userNameInput');
+    nameInput.value = '';
+    
+    // Focus on the input field
+    setTimeout(() => nameInput.focus(), 100);
+    
+    // Remove any existing event listeners to prevent duplication
+    const submitButton = document.getElementById('nameSubmitBtn');
+    const newSubmitButton = submitButton.cloneNode(true);
+    submitButton.parentNode.replaceChild(newSubmitButton, submitButton);
+    
+    // Add keypress event listener to the name input field
+    nameInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            submitUserName();
+        }
+    });
+    
+    // Handle name submission with the new button reference
+    newSubmitButton.addEventListener('click', submitUserName);
 }
 
 // Handle name submission
