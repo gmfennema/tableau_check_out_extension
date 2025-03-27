@@ -143,13 +143,41 @@ function submitUserName() {
     // Store the username
     setStoredUserName(userName, rememberUser);
     
+    // Update Tableau parameter if it exists
+    updateCurrentUserParameter(userName);
+    
     // Hide name prompt and show appropriate view
     document.getElementById('namePromptContainer').style.display = 'none';
     showAppropriateView(userName);
 }
 
+// New function to update the current_user parameter
+async function updateCurrentUserParameter(userName) {
+    try {
+        // Get all parameters in the dashboard
+        const parameters = await tableau.extensions.dashboardContent.dashboard.getParametersAsync();
+        
+        // Find the current_user parameter
+        const currentUserParam = parameters.find(param => 
+            param.name.toLowerCase() === 'current_user');
+        
+        // If the parameter exists, update its value
+        if (currentUserParam) {
+            console.log('Updating current_user parameter to:', userName);
+            await currentUserParam.changeValueAsync(userName);
+        } else {
+            console.log('No current_user parameter found in the dashboard');
+        }
+    } catch (error) {
+        console.error('Error updating current_user parameter:', error);
+    }
+}
+
 // Show appropriate view based on existing configuration
 function showAppropriateView(userName) {
+    // Update the current_user parameter
+    updateCurrentUserParameter(userName);
+    
     const savedConfig = tableau.extensions.settings.get('checkoutConfig');
     
     if (savedConfig) {
