@@ -1,13 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize with configure context menu options
     tableau.extensions.initializeAsync({'configure': configure}).then(() => {
-        const savedConfig = tableau.extensions.settings.get('checkoutConfig');
-        if (savedConfig) {
-            const config = JSON.parse(savedConfig);
-            hideConfig();
-            setupCheckoutListener(config);
+        // Check if we already have a stored username
+        const storedUserName = getStoredUserName();
+        
+        if (storedUserName) {
+            // User already identified, proceed
+            showAppropriateView(storedUserName);
         } else {
-            showConfig();
+            // Show name prompt
+            showNamePrompt();
         }
     });
 });
@@ -17,12 +19,82 @@ function configure() {
     showConfig();
 }
 
-function showConfig() {
+// Get username from storage (sessionStorage or localStorage based on remember setting)
+function getStoredUserName() {
+    const savedUserName = localStorage.getItem('tableauExtensionUserName');
+    const sessionUserName = sessionStorage.getItem('tableauExtensionUserName');
+    
+    return sessionUserName || savedUserName;
+}
+
+// Set username in storage
+function setStoredUserName(userName, remember) {
+    if (remember) {
+        localStorage.setItem('tableauExtensionUserName', userName);
+    } else {
+        // Clear localStorage in case it was previously set
+        localStorage.removeItem('tableauExtensionUserName');
+    }
+    
+    // Always set in session storage
+    sessionStorage.setItem('tableauExtensionUserName', userName);
+}
+
+// Show name prompt view
+function showNamePrompt() {
+    document.getElementById('namePromptContainer').style.display = 'flex';
+    document.getElementById('configSection').classList.add('hidden');
+    document.getElementById('buttonContainer').classList.add('hidden');
+    
+    // Handle name submission
+    document.getElementById('nameSubmitBtn').addEventListener('click', submitUserName);
+}
+
+// Handle name submission
+function submitUserName() {
+    const nameInput = document.getElementById('userNameInput');
+    const rememberUser = document.getElementById('rememberUser').checked;
+    const userName = nameInput.value.trim();
+    
+    if (!userName) {
+        alert('Please enter your name to continue');
+        return;
+    }
+    
+    // Store the username
+    setStoredUserName(userName, rememberUser);
+    
+    // Hide name prompt and show appropriate view
+    document.getElementById('namePromptContainer').style.display = 'none';
+    showAppropriateView(userName);
+}
+
+// Show appropriate view based on existing configuration
+function showAppropriateView(userName) {
+    const savedConfig = tableau.extensions.settings.get('checkoutConfig');
+    
+    if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        // Update current user in the config
+        config.currentUser = userName;
+        // Save updated config with current user
+        tableau.extensions.settings.set('checkoutConfig', JSON.stringify(config));
+        tableau.extensions.settings.saveAsync().then(() => {
+            hideConfig();
+            setupCheckoutListener(config);
+        });
+    } else {
+        showConfig(userName);
+    }
+}
+
+function showConfig(userName) {
     const configSection = document.getElementById('configSection');
     configSection.classList.remove('hidden');
+    document.getElementById('namePromptContainer').style.display = 'none';
     
-    // Get current user information
-    const currentUser = getCurrentUser();
+    // Use provided username or get from storage
+    const currentUser = userName || getStoredUserName();
     
     // Load existing configuration if available
     const savedConfig = tableau.extensions.settings.get('checkoutConfig');
@@ -38,11 +110,6 @@ function showConfig() {
         
         if (existingConfig.apiKey) {
             document.getElementById('apiKey').value = existingConfig.apiKey;
-        }
-        
-        // Populate custom username if previously set
-        if (existingConfig.customUsername) {
-            document.getElementById('customUsername').value = existingConfig.customUsername;
         }
     }
     
@@ -72,15 +139,10 @@ function showConfig() {
         currentUserDisplay.textContent = currentUser;
     }
     
-    // Check if we're using a fallback method and show custom username field if needed
+    // Hide the custom username container as we're now always using user-provided name
     const customUsernameContainer = document.getElementById('customUsernameContainer');
     if (customUsernameContainer) {
-        if (currentUser.includes('-') && currentUser.split('-')[1].length > 10) {
-            // This appears to be our fallback ID method, show the custom field
-            customUsernameContainer.style.display = 'block';
-        } else {
-            customUsernameContainer.style.display = 'none';
-        }
+        customUsernameContainer.style.display = 'none';
     }
 
     // Handle worksheet selection
@@ -139,7 +201,6 @@ function showConfig() {
         document.getElementById('saveConfig').addEventListener('click', () => {
             const appScriptUrl = document.getElementById('appScriptUrl').value;
             const apiKey = document.getElementById('apiKey').value;
-            const customUsername = document.getElementById('customUsername').value;
             
             if (!accountIdColumn.value || !statusColumn.value || !userColumn.value) {
                 alert('Please select all required column fields');
@@ -156,18 +217,14 @@ function showConfig() {
                 return;
             }
             
-            // Use custom username if provided, otherwise use detected user
-            const effectiveUser = customUsername || currentUser;
-            
             const config = {
                 worksheetName: worksheetSelect.value,
                 accountIdColumn: accountIdColumn.value,
                 statusColumn: statusColumn.value,
                 userColumn: userColumn.value,
-                currentUser: effectiveUser,
+                currentUser: currentUser,
                 appScriptUrl: appScriptUrl,
-                apiKey: apiKey,
-                customUsername: customUsername
+                apiKey: apiKey
             };
             
             // Save configuration
@@ -180,7 +237,7 @@ function showConfig() {
     });
 }
 
-// Update the getCurrentUser function to display all available user properties
+// We'll keep this for debugging, but it's no longer used for user identification
 function getCurrentUser() {
     const environment = tableau.extensions.environment;
     const userInfo = environment.user;
@@ -206,28 +263,14 @@ function getCurrentUser() {
         debugInfo += 'No user information available from Tableau';
     }
     
-    // Update the debug info on the page (we'll add this element to the HTML)
+    // Update the debug info on the page
     const debugElement = document.getElementById('userDebugInfo');
     if (debugElement) {
         debugElement.innerHTML = debugInfo;
     }
     
-    // Try to get a suitable user identifier in order of preference
-    if (userInfo && userInfo.displayName) {
-        return userInfo.displayName; // User's display name (First Last)
-    } else if (userInfo && userInfo.friendlyName) {
-        return userInfo.friendlyName; // Friendly name if available
-    } else if (userInfo && userInfo.email) {
-        return userInfo.email; // Email address if available
-    } else if (userInfo && userInfo.username) {
-        return userInfo.username; // Username if available
-    } else if (environment.uniqueUserId) {
-        return environment.uniqueUserId; // Try the uniqueUserId as a fallback
-    } else {
-        // Fallback to hostname or a timestamp-based value if no user info is available
-        const hostname = window.location.hostname || 'tableauuser';
-        return `${hostname}-${new Date().getTime()}`;
-    }
+    // Return the stored user name instead of relying on Tableau
+    return getStoredUserName() || 'Unknown User';
 }
 
 async function getWorksheetColumns(worksheet) {
