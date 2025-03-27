@@ -192,11 +192,14 @@ function setupCheckoutListener(config) {
                         checkoutButton.className = 'checkout';
                     }
                     
-                    // Force refresh the data after a brief delay
-                    setTimeout(updateButton, 1000);
-                    
-                    // Show success message
-                    alert(`${action} request completed successfully!`);
+                    // Force refresh the data source
+                    refreshDataSources().then(() => {
+                        // Then update the button state after data refresh
+                        setTimeout(updateButton, 1000);
+                        
+                        // Show success message
+                        alert(`${action} request completed successfully!`);
+                    });
                 } else {
                     console.error('Error response:', xhr.responseText);
                     alert(`Error: ${xhr.responseText || 'Unknown error'}`);
@@ -270,11 +273,14 @@ function setupCheckoutListener(config) {
                     // Clean up
                     document.body.removeChild(form);
                     
-                    // Force refresh the data after submission
-                    setTimeout(updateButton, 2000);
-                    
-                    // Show success message
-                    alert(`${action} request submitted successfully!`);
+                    // Force refresh the data source
+                    refreshDataSources().then(() => {
+                        // Then update the button state after data refresh
+                        setTimeout(updateButton, 2000);
+                        
+                        // Show success message
+                        alert(`${action} request submitted successfully!`);
+                    });
                 };
             };
             
@@ -312,4 +318,52 @@ function setupCheckoutListener(config) {
     worksheet.addEventListener(tableau.TableauEventType.FilterChanged, () => {
         updateButton();
     });
+}
+
+// Add this new function to refresh all data sources
+async function refreshDataSources() {
+    try {
+        console.log('Refreshing data sources...');
+        
+        const dashboard = tableau.extensions.dashboardContent.dashboard;
+        const dataSourceFetchPromises = [];
+        
+        // Get all data sources in the dashboard
+        dashboard.worksheets.forEach(worksheet => {
+            dataSourceFetchPromises.push(worksheet.getDataSourcesAsync());
+        });
+        
+        // Wait for all data source fetches to complete
+        const worksheetDataSources = await Promise.all(dataSourceFetchPromises);
+        
+        // Flatten the array of arrays
+        const allDataSources = [].concat(...worksheetDataSources);
+        
+        // Create a Set to store unique data source IDs
+        const uniqueDataSourceIds = new Set();
+        const uniqueDataSources = [];
+        
+        // Filter out duplicate data sources
+        allDataSources.forEach(dataSource => {
+            if (!uniqueDataSourceIds.has(dataSource.id)) {
+                uniqueDataSourceIds.add(dataSource.id);
+                uniqueDataSources.push(dataSource);
+            }
+        });
+        
+        console.log(`Found ${uniqueDataSources.length} unique data sources to refresh`);
+        
+        // Refresh each data source
+        const refreshPromises = uniqueDataSources.map(dataSource => {
+            console.log(`Refreshing data source: ${dataSource.name}`);
+            return dataSource.refreshAsync();
+        });
+        
+        // Wait for all refreshes to complete
+        await Promise.all(refreshPromises);
+        console.log('All data sources refreshed successfully');
+        
+    } catch (error) {
+        console.error('Error refreshing data sources:', error);
+    }
 }
