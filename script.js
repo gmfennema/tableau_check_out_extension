@@ -39,6 +39,11 @@ function showConfig() {
         if (existingConfig.apiKey) {
             document.getElementById('apiKey').value = existingConfig.apiKey;
         }
+        
+        // Populate custom username if previously set
+        if (existingConfig.customUsername) {
+            document.getElementById('customUsername').value = existingConfig.customUsername;
+        }
     }
     
     // Populate worksheet dropdown
@@ -60,6 +65,23 @@ function showConfig() {
             worksheetSelect.dispatchEvent(changeEvent);
         }
     });
+
+    // Display current user
+    const currentUserDisplay = document.getElementById('currentUserDisplay');
+    if (currentUserDisplay) {
+        currentUserDisplay.textContent = currentUser;
+    }
+    
+    // Check if we're using a fallback method and show custom username field if needed
+    const customUsernameContainer = document.getElementById('customUsernameContainer');
+    if (customUsernameContainer) {
+        if (currentUser.includes('-') && currentUser.split('-')[1].length > 10) {
+            // This appears to be our fallback ID method, show the custom field
+            customUsernameContainer.style.display = 'block';
+        } else {
+            customUsernameContainer.style.display = 'none';
+        }
+    }
 
     // Handle worksheet selection
     worksheetSelect.addEventListener('change', async () => {
@@ -113,16 +135,11 @@ function showConfig() {
         
         columnsSelect.style.display = 'block';
         
-        // Show current user in the configuration panel
-        const currentUserDisplay = document.getElementById('currentUserDisplay');
-        if (currentUserDisplay) {
-            currentUserDisplay.textContent = currentUser;
-        }
-        
         // Handle save button click
         document.getElementById('saveConfig').addEventListener('click', () => {
             const appScriptUrl = document.getElementById('appScriptUrl').value;
             const apiKey = document.getElementById('apiKey').value;
+            const customUsername = document.getElementById('customUsername').value;
             
             if (!accountIdColumn.value || !statusColumn.value || !userColumn.value) {
                 alert('Please select all required column fields');
@@ -139,14 +156,18 @@ function showConfig() {
                 return;
             }
             
+            // Use custom username if provided, otherwise use detected user
+            const effectiveUser = customUsername || currentUser;
+            
             const config = {
                 worksheetName: worksheetSelect.value,
                 accountIdColumn: accountIdColumn.value,
                 statusColumn: statusColumn.value,
                 userColumn: userColumn.value,
-                currentUser: currentUser,
+                currentUser: effectiveUser,
                 appScriptUrl: appScriptUrl,
-                apiKey: apiKey
+                apiKey: apiKey,
+                customUsername: customUsername
             };
             
             // Save configuration
@@ -167,9 +188,17 @@ function getCurrentUser() {
     // Create a debug message with all available user information
     let debugInfo = 'User environment info:<br>';
     
+    // Display the API version
+    debugInfo += `<strong>API Version:</strong> ${environment.apiVersion}<br><br>`;
+    
+    // Check for uniqueUserId (added in API version 1.11.0)
+    if (environment.uniqueUserId) {
+        debugInfo += `<strong>Environment uniqueUserId:</strong> ${environment.uniqueUserId}<br><br>`;
+    }
+    
     // Display all available user properties for debugging
     if (userInfo) {
-        debugInfo += '<strong>Available properties:</strong><br>';
+        debugInfo += '<strong>Available user properties:</strong><br>';
         for (const prop in userInfo) {
             debugInfo += `${prop}: ${userInfo[prop]}<br>`;
         }
@@ -192,6 +221,8 @@ function getCurrentUser() {
         return userInfo.email; // Email address if available
     } else if (userInfo && userInfo.username) {
         return userInfo.username; // Username if available
+    } else if (environment.uniqueUserId) {
+        return environment.uniqueUserId; // Try the uniqueUserId as a fallback
     } else {
         // Fallback to hostname or a timestamp-based value if no user info is available
         const hostname = window.location.hostname || 'tableauuser';
